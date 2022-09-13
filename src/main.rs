@@ -1,6 +1,7 @@
 mod alpine;
 mod app;
 mod archive;
+mod builder;
 mod http;
 mod mount;
 mod nixos;
