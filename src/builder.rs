@@ -16,8 +16,7 @@ use tempdir::TempDir;
 use crate::{
     alpine::{self, BaseSystemDownloader},
     archive::extract,
-    mount::Mount,
-    nixos,
+    mount, nixos,
     process::run_command_checked,
 };
 
@@ -134,30 +133,26 @@ pub fn setup_namespace(root_path: &Path) -> Result<(), ()> {
     }
 
     // mount a temporary root directory into a new root directory
-    let _new_root_mount = match Mount::bind(&root_path, &new_root) {
-        Ok(m) => m,
-        Err(e) => err!("failed to bind-mount the temporary root: {}", e),
+    if let Err(e) = mount::bind(&root_path, &new_root) {
+        err!("failed to bind-mount the temporary root: {}", e);
     };
 
     // mount /proc in the chroot
     let proc_path = new_root.join("proc");
-    let _proc_mount = match Mount::bind("/proc", proc_path) {
-        Ok(m) => m,
-        Err(e) => err!("failed to mount `/proc` in the temporary root: {}", e),
+    if let Err(e) = mount::bind("/proc", proc_path) {
+        err!("failed to mount `/proc` in the temporary root: {}", e);
     };
 
     // mount /sys in the chroot
     let sys_path = new_root.join("sys");
-    let _sys_mount = match Mount::bind("/sys", sys_path) {
-        Ok(m) => m,
-        Err(e) => err!("failed to mount `/sys` in the temporary root: {}", e),
+    if let Err(e) = mount::bind("/sys", sys_path) {
+        err!("failed to mount `/sys` in the temporary root: {}", e);
     };
 
     // mount /dev in the chroot
     let dev_path = new_root.join("dev");
-    let _dev_mount = match Mount::bind("/dev", dev_path) {
-        Ok(m) => m,
-        Err(e) => err!("failed to mount `/dev` in the temporary root: {}", e),
+    if let Err(e) = mount::bind("/dev", dev_path) {
+        err!("failed to mount `/dev` in the temporary root: {}", e);
     };
 
     // change directory to the new root
@@ -342,7 +337,7 @@ fn install_nixos_generate() -> Result<(), ()> {
 fn nixos_generate() -> Result<PathBuf, ()> {
     println!("Generating an LXC container image...");
 
-    // TODO: custom configuration file
+    // TODO: support custom configuration file
     // TODO: configurable output format
     let result = match run_command_checked("nixos-generate", &["-f", "lxc"]) {
         Ok(o) => o,
