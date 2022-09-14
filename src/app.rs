@@ -60,6 +60,9 @@ fn build(root_path: &Path) -> Result<PathBuf, ()> {
         }
     };
 
+    // Clean up after the build process
+    builder::clean_up();
+
     // Return the resulting absolute path to the built image
     Ok(root_path.join(&image_path))
 }

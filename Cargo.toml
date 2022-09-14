@@ -16,3 +16,4 @@ serde_yaml = "^0.8"
 sha2 = "^0.10"
 tar = { version = "^0.4", default-features = false }
 tempdir = "^0.3"
+walkdir = "^2"

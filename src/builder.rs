@@ -1,24 +1,24 @@
-use std::{
-    env::set_current_dir,
-    ffi::OsString,
-    fs::File,
-    io::Write,
-    os::unix::prelude::OsStringExt,
-    path::{Path, PathBuf},
-};
-
-use nix::{
-    sched::{unshare, CloneFlags},
-    unistd::{chroot, getgid, getuid, pivot_root},
-};
-use tempdir::TempDir;
-
 use crate::{
     alpine::{self, BaseSystemDownloader},
     archive::extract,
     mount, nixos,
     process::run_command_checked,
 };
+use nix::{
+    sched::{unshare, CloneFlags},
+    unistd::{chroot, getgid, getuid, pivot_root},
+};
+use std::{
+    env::set_current_dir,
+    ffi::OsString,
+    fs::{set_permissions, File, Permissions},
+    io::Write,
+    os::unix::fs::PermissionsExt,
+    os::unix::prelude::OsStringExt,
+    path::{Path, PathBuf},
+};
+use tempdir::TempDir;
+use walkdir::WalkDir;
 
 macro_rules! ok {
     ($($msg:expr),+) => {{
@@ -383,4 +383,17 @@ pub fn pull_image(tarball_path: &Path) -> Result<(), ()> {
     );
 
     Ok({})
+}
+
+pub fn clean_up() {
+    WalkDir::new("/")
+        .min_depth(1)
+        .same_file_system(true)
+        .into_iter()
+        .filter_map(|result| result.ok())
+        .filter(|entry| entry.file_type().is_dir())
+        .filter(|entry| !entry.path().starts_with("/new_root"))
+        .for_each(|entry| {
+            let _ = set_permissions(entry.path(), Permissions::from_mode(0o755));
+        });
 }
