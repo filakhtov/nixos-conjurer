@@ -2,6 +2,7 @@ use std::fmt::Display;
 
 use crate::process::run_command_checked;
 
+#[derive(Debug)]
 pub struct Error {
     message: String,
 }
@@ -17,6 +18,8 @@ impl Display for Error {
         write!(f, "{}", self.message)
     }
 }
+
+impl std::error::Error for Error {}
 
 pub fn add_channel<C: AsRef<str>>(channel: C) -> Result<(), Error> {
     let args: Vec<&str> = vec!["--add", channel.as_ref()];

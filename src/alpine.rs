@@ -96,6 +96,7 @@ struct VersionFile {
     sha512: String,
 }
 
+#[derive(Debug)]
 pub struct Error {
     error: String,
 }
@@ -113,6 +114,8 @@ impl std::fmt::Display for Error {
         write!(f, "{}", self.error)
     }
 }
+
+impl std::error::Error for Error {}
 
 fn parse_release_info(f: &str) -> Result<VersionFile> {
     let vf: Vec<VersionFile> = match serde_yaml::from_str(f) {

@@ -109,3 +109,5 @@ impl std::fmt::Display for Error {
         write!(f, "{}", self.error)
     }
 }
+
+impl std::error::Error for Error {}

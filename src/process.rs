@@ -26,7 +26,7 @@ macro_rules! err {
 
 type ProcResult<T> = core::result::Result<T, Error>;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Error {
     msg: String,
 }
@@ -36,6 +36,8 @@ impl Display for Error {
         write!(f, "{}", self.msg)
     }
 }
+
+impl std::error::Error for Error {}
 
 pub fn run_forked<T: Serialize + for<'de> Deserialize<'de>, F: Fn() -> T>(f: F) -> ProcResult<T> {
     let (tx, rx) = match channel() {
