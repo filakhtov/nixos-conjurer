@@ -178,8 +178,14 @@ impl Builder {
                     config_path.display(),
                     e
                 ),
-                _ => return Ok({}),
+                _ => ok!(
+                    "copied Nix configuration file from `{}` to `{}`",
+                    p.display(),
+                    config_path.display()
+                ),
             }
+
+            return Ok({});
         }
 
         let contents = self.conf.nix_configuration().as_ref().unwrap();
@@ -189,7 +195,10 @@ impl Builder {
                 config_path.display(),
                 e
             ),
-            _ => Ok({}),
+            _ => {
+                ok!("created `{}` Nix configuration file", config_path.display());
+                Ok({})
+            }
         }
     }
 }
