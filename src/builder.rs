@@ -54,14 +54,14 @@ impl Builder {
         // Create a temporary root directory
         let build_dir = create_build_directory()?;
 
+        // Copy Nix configuration into the temporary root directory
+        self.copy_nix_configuration(build_dir.path())?;
+
         // Download the minimal chroot system tarball (and verify its integrity)
         let tarball_path = self.download_rootfs_tarball(build_dir.path())?;
 
         // Extract the rootfs tarball
         extract_rootfs_tarball(&tarball_path)?;
-
-        // Copy Nix configuration into the temporary root directory
-        self.copy_nix_configuration(build_dir.path())?;
 
         Ok(build_dir)
     }
