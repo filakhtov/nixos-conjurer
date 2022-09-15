@@ -1,6 +1,7 @@
 use crate::{
     alpine::{self, BaseSystemDownloader},
     archive::extract,
+    config::Configuration,
     mount, nixos,
     process::run_command_checked,
 };
@@ -11,7 +12,7 @@ use nix::{
 use std::{
     env::set_current_dir,
     ffi::OsString,
-    fs::{set_permissions, File, Permissions},
+    fs::{copy, set_permissions, File, Permissions},
     io::Write,
     os::unix::fs::PermissionsExt,
     os::unix::prelude::OsStringExt,
@@ -38,12 +39,14 @@ macro_rules! err {
 
 pub struct Builder {
     bsd: BaseSystemDownloader,
+    conf: Configuration,
 }
 
 impl Builder {
-    pub fn new(base_system_downloader: BaseSystemDownloader) -> Self {
+    pub fn new(base_system_downloader: BaseSystemDownloader, configuration: Configuration) -> Self {
         Self {
             bsd: base_system_downloader,
+            conf: configuration,
         }
     }
 
@@ -57,6 +60,9 @@ impl Builder {
         // Extract the rootfs tarball
         extract_rootfs_tarball(&tarball_path)?;
 
+        // Copy Nix configuration into the temporary root directory
+        self.copy_nix_configuration(build_dir.path())?;
+
         Ok(build_dir)
     }
 
@@ -69,6 +75,121 @@ impl Builder {
                 Ok(base_system_tarball)
             }
             Err(e) => err!("{}", e),
+        }
+    }
+
+    pub fn pull_image(&self, tarball_path: &Path) -> Result<(), ()> {
+        println!("Pulling the resulting image from the temporary root...");
+
+        let output_path = match self.conf.output_path() {
+            Some(p) => PathBuf::from(p),
+            None => match tarball_path.file_name() {
+                Some(p) => PathBuf::from(p),
+                _ => err!(
+                    "failed to get the image filename from: `{}`",
+                    tarball_path.display()
+                ),
+            },
+        };
+
+        if let Err(e) = std::fs::copy(&tarball_path, &output_path) {
+            err!(
+                "failed to copy the resulting image from `{}` to `{}`: {}",
+                tarball_path.display(),
+                output_path.display(),
+                e
+            );
+        }
+
+        ok!(
+            "successfully copied the `{}` image file",
+            output_path.display()
+        );
+
+        Ok({})
+    }
+
+    pub fn run_build_process(&self) -> Result<PathBuf, ()> {
+        // Fix resolv.conf
+        fix_resolv_conf()?;
+
+        // Add the Alpine edge repository
+        add_repositories()?;
+
+        // Install bash, xz, tar, nix via apk
+        install_nix()?;
+
+        // Add the nixpkg channel and update channels
+        nix_update_channels()?;
+
+        // Install `nixos-generate` through nix
+        install_nixos_generate()?;
+
+        // Generate an image
+        let image_path = self.nixos_generate()?;
+
+        Ok(image_path)
+    }
+
+    fn nixos_generate(&self) -> Result<PathBuf, ()> {
+        println!("Generating an LXC container image...");
+
+        let mut args = vec![OsString::from("-f"), self.conf.output_format().to_owned()];
+        if self.conf.has_nix_configuration() {
+            args.append(&mut vec![
+                OsString::from("-c"),
+                OsString::from("/configuration.nix"),
+            ]);
+        }
+
+        let result = match run_command_checked("nixos-generate", &args) {
+            Ok(o) => o,
+            Err(e) => err!("{}", e),
+        };
+
+        // trim the leading slash `/` and trailing newlines `\n` from the output
+        let output_path = result
+            .stdout
+            .into_iter()
+            .skip(1)
+            .filter(|c| *c as char != '\n')
+            .collect();
+        let image_path = PathBuf::from(OsString::from_vec(output_path));
+
+        ok!("generated the image: {}", image_path.display());
+
+        Ok(image_path)
+    }
+
+    fn copy_nix_configuration(&self, build_root: &Path) -> Result<(), ()> {
+        if !self.conf.has_nix_configuration() {
+            return Ok({});
+        }
+
+        println!("Creating a Nix build configuration file...");
+
+        let config_path = build_root.join("configuration.nix");
+
+        if let Some(p) = self.conf.nix_configuration_path() {
+            match copy(p, &config_path) {
+                Err(e) => err!(
+                    "failed to copy Nix configuration file from `{}` to `{}`: {}",
+                    config_path.display(),
+                    p.display(),
+                    e
+                ),
+                _ => return Ok({}),
+            }
+        }
+
+        let contents = self.conf.nix_configuration().as_ref().unwrap();
+        match std::fs::write(&config_path, contents) {
+            Err(e) => err!(
+                "failed to create the Nix configuration file `{}`: {}",
+                config_path.display(),
+                e
+            ),
+            _ => Ok({}),
         }
     }
 }
@@ -241,28 +362,6 @@ pub fn setup_namespace(root_path: &Path) -> Result<(), ()> {
     Ok({})
 }
 
-pub fn run_build_process() -> Result<PathBuf, ()> {
-    // Fix resolv.conf
-    fix_resolv_conf()?;
-
-    // Add the Alpine edge repository
-    add_repositories()?;
-
-    // Install bash, xz, tar, nix via apk
-    install_nix()?;
-
-    // Add the nixpkg channel and update channels
-    nix_update_channels()?;
-
-    // Install `nixos-generate` through nix
-    install_nixos_generate()?;
-
-    // Generate an image
-    let image_path = nixos_generate()?;
-
-    Ok(image_path)
-}
-
 fn fix_resolv_conf() -> Result<(), ()> {
     println!("Fix DNS resolution in the namespace...");
     let resolv_conf_path = "/etc/resolv.conf";
@@ -330,57 +429,6 @@ fn install_nixos_generate() -> Result<(), ()> {
     }
 
     ok!("successfully installed the package");
-
-    Ok({})
-}
-
-fn nixos_generate() -> Result<PathBuf, ()> {
-    println!("Generating an LXC container image...");
-
-    // TODO: support custom configuration file
-    // TODO: configurable output format
-    let result = match run_command_checked("nixos-generate", &["-f", "lxc"]) {
-        Ok(o) => o,
-        Err(e) => err!("{}", e),
-    };
-
-    // trim the leading / and trailing newlines `\n` from the output
-    let output_path = result
-        .stdout
-        .into_iter()
-        .skip(1)
-        .filter(|c| *c as char != '\n')
-        .collect();
-    let image_path = PathBuf::from(OsString::from_vec(output_path));
-
-    ok!("generated the image: {}", image_path.display());
-
-    Ok(image_path)
-}
-
-pub fn pull_image(tarball_path: &Path) -> Result<(), ()> {
-    println!("Pulling the resulting image from the temporary root...");
-    let image_name = match tarball_path.file_name() {
-        Some(p) => PathBuf::from(p),
-        _ => err!(
-            "failed to get the image filename from: `{}`",
-            tarball_path.display()
-        ),
-    };
-
-    if let Err(e) = std::fs::copy(&tarball_path, &image_name) {
-        err!(
-            "failed to copy the resulting image from `{}` to `{}`: {}",
-            tarball_path.display(),
-            image_name.display(),
-            e
-        );
-    }
-
-    ok!(
-        "successfully copied the `{}` image file",
-        image_name.display()
-    );
 
     Ok({})
 }

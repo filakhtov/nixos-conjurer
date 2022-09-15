@@ -612,7 +612,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "nixos-lxc-generator"
+name = "nixos-conjurer"
 version = "0.1.0"
 dependencies = [
  "bytes",

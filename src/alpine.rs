@@ -3,6 +3,7 @@ use crate::process::run_command_checked;
 use serde::Deserialize;
 use serde_yaml;
 use sha2::{Digest, Sha512};
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{copy, Read, Result as IoResult};
 use std::path::Path;
@@ -190,8 +191,8 @@ pub fn enable_edge_repositories() -> Result<()> {
     Ok({})
 }
 
-fn run_apk(args: &[&str]) -> Result<()> {
-    if let Err(e) = run_command_checked("apk", &args) {
+fn run_apk<A: AsRef<OsStr>, I: IntoIterator<Item = A>>(args: I) -> Result<()> {
+    if let Err(e) = run_command_checked("apk", args) {
         err!("{}", e);
     }
 

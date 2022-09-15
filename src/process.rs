@@ -8,6 +8,7 @@ use nix::{
 };
 use serde::{Deserialize, Serialize};
 use std::{
+    ffi::OsStr,
     fmt::Display,
     process::{exit, Command, Output},
 };
@@ -119,7 +120,10 @@ fn read_child_status<T: for<'de> Deserialize<'de> + Serialize>(
     }
 }
 
-pub fn run_command<C: AsRef<str>>(command: C, args: &[&str]) -> ProcResult<Output> {
+pub fn run_command<C: AsRef<str>, A: AsRef<OsStr>, I: IntoIterator<Item = A>>(
+    command: C,
+    args: I,
+) -> ProcResult<Output> {
     match Command::new(command.as_ref())
         .args(args)
         .env(
@@ -139,7 +143,10 @@ pub fn run_command<C: AsRef<str>>(command: C, args: &[&str]) -> ProcResult<Outpu
     }
 }
 
-pub fn run_command_checked<C: AsRef<str>>(command: C, args: &[&str]) -> ProcResult<Output> {
+pub fn run_command_checked<C: AsRef<str>, A: AsRef<OsStr>, I: IntoIterator<Item = A>>(
+    command: C,
+    args: I,
+) -> ProcResult<Output> {
     let result = match run_command(&command, args) {
         Ok(o) => o,
         Err(e) => {
