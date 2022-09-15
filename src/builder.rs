@@ -174,8 +174,8 @@ impl Builder {
             match copy(p, &config_path) {
                 Err(e) => err!(
                     "failed to copy Nix configuration file from `{}` to `{}`: {}",
-                    config_path.display(),
                     p.display(),
+                    config_path.display(),
                     e
                 ),
                 _ => return Ok({}),
