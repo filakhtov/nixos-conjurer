@@ -8,6 +8,7 @@ use serde::Deserialize;
 
 #[derive(Deserialize)]
 pub struct Configuration {
+    temporary_dir: Option<PathBuf>,
     output_path: Option<PathBuf>,
     output_format: String,
     nix_configuration_path: Option<PathBuf>,
@@ -57,6 +58,10 @@ impl Configuration {
 
     pub fn output_format(&self) -> OsString {
         OsString::from(&self.output_format)
+    }
+
+    pub fn temporary_dir(&self) -> &Option<PathBuf> {
+        &self.temporary_dir
     }
 
     pub fn nix_configuration_path(&self) -> &Option<PathBuf> {

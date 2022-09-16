@@ -52,7 +52,7 @@ impl Builder {
 
     pub fn create_chroot(&self) -> Result<TempDir, ()> {
         // Create a temporary root directory
-        let build_dir = create_build_directory()?;
+        let build_dir = self.create_build_directory()?;
 
         // Copy Nix configuration into the temporary root directory
         self.copy_nix_configuration(build_dir.path())?;
@@ -201,17 +201,23 @@ impl Builder {
             }
         }
     }
-}
 
-fn create_build_directory() -> Result<TempDir, ()> {
-    println!("Creating a temporary root directory...");
-    match TempDir::new("nixoslxcgen") {
-        Ok(tmp_dir) => {
-            ok!("successfully created `{}`", tmp_dir.path().display());
+    fn create_build_directory(&self) -> Result<TempDir, ()> {
+        println!("Creating a temporary root directory...");
 
-            Ok(tmp_dir)
+        let result = match self.conf.temporary_dir() {
+            Some(t) => TempDir::new_in(t, "nixoslxcgen"),
+            None => TempDir::new("nixoslxcgen"),
+        };
+
+        match result {
+            Ok(tmp_dir) => {
+                ok!("successfully created `{}`", tmp_dir.path().display());
+
+                Ok(tmp_dir)
+            }
+            Err(e) => err!("{}", e),
         }
-        Err(e) => err!("{}", e),
     }
 }
 
