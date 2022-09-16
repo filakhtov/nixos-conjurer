@@ -1,2 +1,2 @@
-# nixos-lxc-generator
-A tool to generate the NixOS image for running inside of an LXC container
+# nixos-conjurer
+A tool to generate NixOS images in various formats.

@@ -37,6 +37,27 @@ macro_rules! err {
     }};
 }
 
+pub struct BuildDir {
+    dir: TempDir,
+}
+
+impl BuildDir {
+    pub fn new(dir: TempDir) -> Self {
+        Self { dir }
+    }
+
+    pub fn path(&self) -> &Path {
+        self.dir.path()
+    }
+}
+
+impl Drop for BuildDir {
+    fn drop(&mut self) {
+        // Fix permissions so that a directory can be automatically removed
+        fix_permissions(self.dir.path());
+    }
+}
+
 pub struct Builder {
     bsd: BaseSystemDownloader,
     conf: Configuration,
@@ -50,7 +71,7 @@ impl Builder {
         }
     }
 
-    pub fn create_chroot(&self) -> Result<TempDir, ()> {
+    pub fn create_chroot(&self) -> Result<BuildDir, ()> {
         // Create a temporary root directory
         let build_dir = self.create_build_directory()?;
 
@@ -202,7 +223,7 @@ impl Builder {
         }
     }
 
-    fn create_build_directory(&self) -> Result<TempDir, ()> {
+    fn create_build_directory(&self) -> Result<BuildDir, ()> {
         println!("Creating a temporary root directory...");
 
         let result = match self.conf.temporary_dir() {
@@ -210,14 +231,14 @@ impl Builder {
             None => TempDir::new("nixoslxcgen"),
         };
 
-        match result {
-            Ok(tmp_dir) => {
-                ok!("successfully created `{}`", tmp_dir.path().display());
-
-                Ok(tmp_dir)
-            }
+        let temp_dir = match result {
+            Ok(tmp_dir) => tmp_dir,
             Err(e) => err!("{}", e),
-        }
+        };
+
+        ok!("successfully created `{}`", temp_dir.path().display());
+
+        Ok(BuildDir::new(temp_dir))
     }
 }
 
@@ -448,8 +469,8 @@ fn install_nixos_generate() -> Result<(), ()> {
     Ok({})
 }
 
-pub fn clean_up() {
-    WalkDir::new("/")
+fn fix_permissions<P: AsRef<Path>>(path: P) {
+    WalkDir::new(path.as_ref())
         .min_depth(1)
         .same_file_system(true)
         .into_iter()

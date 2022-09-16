@@ -130,9 +130,6 @@ impl App {
             }
         };
 
-        // Clean up after the build process
-        builder::clean_up();
-
         // Return the resulting absolute path to the built image
         Ok(root_path.join(&image_path))
     }
