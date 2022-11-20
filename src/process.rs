@@ -131,6 +131,9 @@ pub fn run_command<C: AsRef<str>, A: AsRef<OsStr>, I: IntoIterator<Item = A>>(
             "/nix/var/nix/profiles/default/bin:/usr/sbin:/usr/bin:/sbin:/bin",
         )
         .env("TMPDIR", "/tmp")
+        .env("TEMPDIR", "/tmp")
+        .env("TMP", "/tmp")
+        .env("TEMP", "/tmp")
         .env("HOME", "/root")
         .output()
     {
