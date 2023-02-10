@@ -13,7 +13,7 @@ impl ClientBuilder {
     fn new() -> Self {
         Self {
             builder: reqwest::blocking::Client::builder()
-                .user_agent("nixos-lxc-generator/v0.0.1")
+                .user_agent("nixos-conjurer/v0.0.1")
                 .referer(false)
                 .use_rustls_tls()
                 .https_only(true),
