@@ -153,7 +153,10 @@ impl Builder {
     }
 
     fn nixos_generate(&self) -> Result<PathBuf, ()> {
-        println!("Generating an LXC container image...");
+        println!(
+            "Generating a NixOS `{}` image...",
+            self.conf.output_format().to_string_lossy()
+        );
 
         let mut args = vec![OsString::from("-f"), self.conf.output_format().to_owned()];
         if self.conf.has_nix_configuration() {
@@ -227,8 +230,8 @@ impl Builder {
         println!("Creating a temporary root directory...");
 
         let result = match self.conf.temporary_dir() {
-            Some(t) => TempDir::new_in(t, "nixoslxcgen"),
-            None => TempDir::new("nixoslxcgen"),
+            Some(t) => TempDir::new_in(t, "nixosconj"),
+            None => TempDir::new("nixosconj"),
         };
 
         let temp_dir = match result {
